@@ -29,6 +29,7 @@ from bot.misc import TgConfig, EnvKeys
 from bot.utils.admin_notify import notify_admin
 from bot.utils.usdltc import get_ltc_usd_price
 from bot.payment.walletgenerator import generate_ltc_wallet
+from sqlalchemy.exc import SQLAlchemyError
 
 
 async def start(message: Message):
@@ -66,7 +67,8 @@ async def start(message: Message):
 
     role_data = check_role(user_id)
 
-    chat = TgConfig.CHANNEL_URL[13:]
+    parsed_chat_url = urlparse(TgConfig.CHANNEL_URL)
+    chat = parsed_chat_url.path.lstrip('/')
     try:
         if chat:
             chat_member = await bot.get_chat_member(chat_id=f'@{chat}', user_id=user_id)
@@ -86,14 +88,24 @@ async def start(message: Message):
 
 async def back_to_menu_reply_handler(message: Message):
     bot, _ = await get_bot_user_ids(message)
-    user = check_user(message.from_user.id)
+    try:
+        user = check_user(message.from_user.id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await message.answer('Произошла ошибка, попробуйте позже')
+        return
     markup = main_menu(user.role_id, TgConfig.CHANNEL_URL, TgConfig.HELPER_URL)
     await message.answer("⛩️ Основное меню", reply_markup=markup)
 
 
 async def back_to_menu_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
-    user = check_user(call.from_user.id)
+    try:
+        user = check_user(call.from_user.id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     markup = main_menu(user.role_id, TgConfig.CHANNEL_URL, TgConfig.HELPER_URL)
     await call.answer()
     await bot.edit_message_text('⛩️ Основное меню',
@@ -112,7 +124,12 @@ async def close_callback_handler(call: CallbackQuery):
 async def shop_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
-    categories = get_all_categories()
+    try:
+        categories = get_all_categories()
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     max_index = len(categories) // 10
     if len(categories) % 10 == 0:
         max_index -= 1
@@ -126,7 +143,12 @@ async def shop_callback_handler(call: CallbackQuery):
 
 async def navigate_categories(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
-    categories = get_all_categories()
+    try:
+        categories = get_all_categories()
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     current_index = int(call.data.split('_')[1])
     max_index = len(categories) // 10
     if len(categories) % 10 == 0:
@@ -151,7 +173,12 @@ async def items_list_callback_handler(call: CallbackQuery):
     category_name = call.data[9:]
     bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
-    goods = get_all_items(category_name)
+    try:
+        goods = get_all_items(category_name)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     max_index = len(goods) // 10
     if len(goods) % 10 == 0:
         max_index -= 1
@@ -165,7 +192,12 @@ async def navigate_goods(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     category_name = call.data.split('_')[1]
     current_index = int(call.data.split('_')[2])
-    goods = get_all_items(category_name)
+    try:
+        goods = get_all_items(category_name)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     max_index = len(goods) // 10
     if len(goods) % 10 == 0:
         max_index -= 1
@@ -184,11 +216,16 @@ async def item_info_callback_handler(call: CallbackQuery):
     item_name = call.data[5:]
     bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
-    item_info_list = get_item_info(item_name)
-    category = item_info_list['category_name']
-    quantity = 'Количество - неограниченно'
-    if not check_value(item_name):
-        quantity = f'Количество - {select_item_values_amount(item_name)}шт.'
+    try:
+        item_info_list = get_item_info(item_name)
+        category = item_info_list['category_name']
+        quantity = 'Количество - неограниченно'
+        if not check_value(item_name):
+            quantity = f'Количество - {select_item_values_amount(item_name)}шт.'
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     markup = item_info(item_name, category)
     await call.answer()
     await bot.edit_message_text(
@@ -206,19 +243,34 @@ async def buy_item_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     await call.answer()
     msg = call.message.message_id
-    item_info_list = get_item_info(item_name)
-    item_price = item_info_list["price"]
-    user_balance = get_user_balance(user_id)
+    try:
+        item_info_list = get_item_info(item_name)
+        item_price = item_info_list["price"]
+        user_balance = get_user_balance(user_id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
 
     if user_balance >= item_price:
-        value_data = get_item_value(item_name)
+        try:
+            value_data = get_item_value(item_name)
+        except SQLAlchemyError as e:
+            logger.exception(e)
+            await call.answer('Произошла ошибка, попробуйте позже')
+            return
 
         if value_data:
             current_time = datetime.datetime.now()
             formatted_time = current_time.strftime("%Y-%m-%d %H:%M:%S")
-            buy_item(value_data['id'], value_data['is_infinity'])
-            add_bought_item(value_data['item_name'], value_data['value'], item_price, user_id, formatted_time)
-            new_balance = buy_item_for_balance(user_id, item_price)
+            try:
+                buy_item(value_data['id'], value_data['is_infinity'])
+                add_bought_item(value_data['item_name'], value_data['value'], item_price, user_id, formatted_time)
+                new_balance = buy_item_for_balance(user_id, item_price)
+            except SQLAlchemyError as e:
+                logger.exception(e)
+                await call.answer('Произошла ошибка, попробуйте позже')
+                return
             await bot.edit_message_text(chat_id=call.message.chat.id,
                                         message_id=msg,
                                         text=f'✅ Товар куплен. '
@@ -250,8 +302,13 @@ async def buy_item_callback_handler(call: CallbackQuery):
 async def bought_items_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
-    bought_goods = select_bought_items(user_id)
-    goods = bought_items_list(user_id)
+    try:
+        bought_goods = select_bought_items(user_id)
+        goods = bought_items_list(user_id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     max_index = len(goods) // 10
     if len(goods) % 10 == 0:
         max_index -= 1
@@ -263,8 +320,13 @@ async def bought_items_callback_handler(call: CallbackQuery):
 
 async def navigate_bought_items(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
-    goods = bought_items_list(user_id)
-    bought_goods = select_bought_items(user_id)
+    try:
+        goods = bought_items_list(user_id)
+        bought_goods = select_bought_items(user_id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     current_index = int(call.data.split('_')[1])
     data = call.data.split('_')[2]
     max_index = len(goods) // 10
@@ -292,7 +354,12 @@ async def bought_item_info_callback_handler(call: CallbackQuery):
     back_data = call.data.split(":")[2]
     bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
-    item = get_bought_item_info(item_id)
+    try:
+        item = get_bought_item_info(item_id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     await call.answer()
     await bot.edit_message_text(
         f'<b>Товар</b>: <code>{item["item_name"]}</code>\n'
@@ -335,11 +402,16 @@ async def profile_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     user = call.from_user
     TgConfig.STATE[user_id] = None
-    user_info = check_user(user_id)
-    balance = user_info.balance
-    overall_balance = 0
-    items = select_user_items(user_id)
-    ltc_address = get_ltc_address(user_id)
+    try:
+        user_info = check_user(user_id)
+        balance = user_info.balance
+        overall_balance = 0
+        items = select_user_items(user_id)
+        ltc_address = get_ltc_address(user_id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     referral = TgConfig.REFERRAL_PERCENT
     markup = profile(referral, items)
     await call.answer()
@@ -357,7 +429,12 @@ async def profile_callback_handler(call: CallbackQuery):
 async def referral_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
-    referrals = check_user_referrals(user_id)
+    try:
+        referrals = check_user_referrals(user_id)
+    except SQLAlchemyError as e:
+        logger.exception(e)
+        await call.answer('Произошла ошибка, попробуйте позже')
+        return
     referral_percent = TgConfig.REFERRAL_PERCENT
     await call.answer()
     await bot.edit_message_text(f'💚 Реферальная система\n'
@@ -447,8 +524,13 @@ async def check_sub_to_channel(call: CallbackQuery):
     chat_member = await bot.get_chat_member(chat_id='@' + channel_username, user_id=call.from_user.id)
 
     if await check_sub_channel(chat_member):
-        user = check_user(call.from_user.id)
-        role = user.role_id
+        try:
+            user = check_user(call.from_user.id)
+            role = user.role_id
+        except SQLAlchemyError as e:
+            logger.exception(e)
+            await call.answer('Произошла ошибка, попробуйте позже')
+            return
         markup = main_menu(role, chat, helper)
         await call.answer()
         await bot.edit_message_text('⛩️ Основное меню', chat_id=call.message.chat.id,

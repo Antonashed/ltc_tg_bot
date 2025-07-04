@@ -14,6 +14,7 @@ def main_menu(role: int, channel: str = None, helper: str = None) -> InlineKeybo
             InlineKeyboardButton('📜 Правила', callback_data='rules'),
         ],
         [InlineKeyboardButton('👤 Профиль', callback_data='profile')],
+        [InlineKeyboardButton('⚙️ Настройки', callback_data='settings')],
     ]
     if helper and channel:
         inline_keyboard.append([

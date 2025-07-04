@@ -398,8 +398,10 @@ async def adding_item(message: Message):
                                     text='✅ Позиция создана, товар добавлен',
                                     reply_markup=back('item-management'))
         admin_info = await bot.get_chat(user_id)
-        logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
-                    f'создал новую позицию "{item_name}"')
+        logger.info(
+            f"Пользователь {user_id} ({admin_info.first_name}) добавил {len(values_list)} "
+            f"значений к товару \"{item_name}\""
+        )
         await notify_admin(
             bot,
             f"Добавлена позиция: {admin_info.first_name} ({user_id}) -> {item_name}"
@@ -425,8 +427,10 @@ async def adding_item(message: Message):
                                     text='✅ Позиция создана, товар добавлен',
                                     reply_markup=back('item-management'))
         admin_info = await bot.get_chat(user_id)
-        logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
-                    f'создал новую позицию "{item_name}"')
+        logger.info(
+            f"Пользователь {user_id} ({admin_info.first_name}) добавил неограниченное "
+            f"количество значений к товару \"{item_name}\""
+        )
         await notify_admin(
             bot,
             f"Добавлена позиция: {admin_info.first_name} ({user_id}) -> {item_name}"

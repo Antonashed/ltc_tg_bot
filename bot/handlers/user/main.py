@@ -16,6 +16,7 @@ from bot.keyboards import check_sub, main_menu, categories_list, goods_list, \
     profile, rules, user_items_list, back, item_info
 from bot.logger_mesh import logger
 from bot.misc import TgConfig, EnvKeys
+from bot.utils.admin_notify import notify_admin
 from bot.utils.usdltc import get_ltc_usd_price
 from bot.payment.walletgenerator import generate_ltc_wallet
 
@@ -210,6 +211,11 @@ async def buy_item_callback_handler(call: CallbackQuery):
             user_info = await bot.get_chat(user_id)
             logger.info(f"Пользователь {user_id} ({user_info.first_name})"
                         f" купил 1 товар позиции {value_data['item_name']} за {item_price}р")
+            await notify_admin(
+                bot,
+                f"Покупка: {user_info.first_name} ({user_id}) купил {value_data['item_name']}"
+                f" за {item_price}$"
+            )
             return
 
         await bot.edit_message_text(chat_id=call.message.chat.id,

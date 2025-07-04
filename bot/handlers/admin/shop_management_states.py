@@ -16,6 +16,7 @@ from bot.keyboards import shop_management, goods_management, categories_manageme
     question_buttons
 from bot.logger_mesh import logger
 from bot.misc import TgConfig
+from bot.utils.admin_notify import notify_admin
 
 
 async def shop_callback_handler(call: CallbackQuery):
@@ -143,6 +144,10 @@ async def process_category_for_add(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'создал новую категорию "{msg}"')
+    await notify_admin(
+        bot,
+        f"Создана категория: {admin_info.first_name} ({user_id}) -> {msg}"
+    )
 
 
 async def delete_category_callback_handler(call: CallbackQuery):
@@ -181,6 +186,10 @@ async def process_category_for_delete(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'удалил категорию "{category["name"]}"')
+    await notify_admin(
+        bot,
+        f"Удалена категория: {admin_info.first_name} ({user_id}) -> {category['name']}"
+    )
 
 
 async def update_category_callback_handler(call: CallbackQuery):
@@ -232,6 +241,10 @@ async def check_category_name_for_update(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'изменил категорию "{old_name}" на "{category}"')
+    await notify_admin(
+        bot,
+        f"Обновлена категория: {admin_info.first_name} ({user_id}) {old_name} -> {category}"
+    )
 
 
 async def goods_settings_menu_callback_handler(call: CallbackQuery):
@@ -387,6 +400,10 @@ async def adding_item(message: Message):
         admin_info = await bot.get_chat(user_id)
         logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                     f'создал новую позицию "{item_name}"')
+        await notify_admin(
+            bot,
+            f"Добавлена позиция: {admin_info.first_name} ({user_id}) -> {item_name}"
+        )
     else:
         value = message.text
         await bot.delete_message(chat_id=message.chat.id,
@@ -410,6 +427,10 @@ async def adding_item(message: Message):
         admin_info = await bot.get_chat(user_id)
         logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                     f'создал новую позицию "{item_name}"')
+        await notify_admin(
+            bot,
+            f"Добавлена позиция: {admin_info.first_name} ({user_id}) -> {item_name}"
+        )
 
 
 async def update_item_amount_callback_handler(call: CallbackQuery):
@@ -480,6 +501,10 @@ async def updating_item_amount(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'добавил товары к позиции "{item_name}" в количестве {len(values_list)} шт')
+    await notify_admin(
+        bot,
+        f"Добавлено товаров: {admin_info.first_name} ({user_id}) -> {item_name} ({len(values_list)} шт)"
+    )
 
 
 async def update_item_callback_handler(call: CallbackQuery):
@@ -589,6 +614,10 @@ async def update_item_process(call: CallbackQuery):
         admin_info = await bot.get_chat(user_id)
         logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                     f'обновил позицию "{item_old_name}" на "{item_new_name}"')
+        await notify_admin(
+            bot,
+            f"Обновлена позиция: {admin_info.first_name} ({user_id}) {item_old_name} -> {item_new_name}"
+        )
     else:
         if answer[1] == 'make':
             await bot.edit_message_text(chat_id=call.message.chat.id,
@@ -634,6 +663,10 @@ async def update_item_infinity(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'обновил позицию "{item_old_name}" на "{item_new_name}"')
+    await notify_admin(
+        bot,
+        f"Обновлена позиция: {admin_info.first_name} ({user_id}) {item_old_name} -> {item_new_name}"
+    )
 
 
 async def delete_item_callback_handler(call: CallbackQuery):
@@ -672,6 +705,10 @@ async def delete_str_item(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'удалил позицию "{msg}"')
+    await notify_admin(
+        bot,
+        f"Удалена позиция: {admin_info.first_name} ({user_id}) -> {msg}"
+    )
 
 
 async def show_bought_item_callback_handler(call: CallbackQuery):

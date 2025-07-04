@@ -10,6 +10,7 @@ from bot.misc import TgConfig
 from bot.database.models import Permission
 from bot.handlers.other import get_bot_user_ids
 from bot.logger_mesh import logger
+from bot.utils.admin_notify import notify_admin
 
 
 async def user_callback_handler(call: CallbackQuery):
@@ -122,6 +123,10 @@ async def process_admin_for_purpose(call: CallbackQuery):
         admin_info = await bot.get_chat(user_id)
         logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                     f"назначил пользователя {user_data} ({user_info.first_name}) администратором")
+        await notify_admin(
+            bot,
+            f"Назначен админ: {admin_info.first_name} ({user_id}) -> {user_info.first_name} ({user_data})"
+        )
         return
     await call.answer('Недостаточно прав')
 
@@ -146,6 +151,10 @@ async def process_admin_for_remove(call: CallbackQuery):
         admin_info = await bot.get_chat(user_id)
         logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                     f"отозвал роль администратора у пользователя {user_data} ({user_info.first_name})")
+        await notify_admin(
+            bot,
+            f"Снят админ: {admin_info.first_name} ({user_id}) -> {user_info.first_name} ({user_data})"
+        )
         return
     await call.answer('Недостаточно прав')
 
@@ -188,6 +197,10 @@ async def process_replenish_user_balance(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f"пополнил баланс пользователя {user_data} ({user_info.first_name}) на {msg}$")
+    await notify_admin(
+        bot,
+        f"Пополнение баланса пользователю: {admin_info.first_name} ({user_id}) -> {user_info.first_name} ({user_data}) {msg}$"
+    )
     try:
         await bot.send_message(chat_id=user_data,
                                text=f'✅ Ваш баланс пополнен на {msg}$',

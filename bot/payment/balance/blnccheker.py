@@ -7,6 +7,7 @@ from bot.utils.usdltc import get_ltc_usd_price
 from bot.utils.LTClogger import is_transaction_logged
 from bot.database.methods import update_balance
 from bot.payment.txlogger import log_transaction
+from bot.utils.admin_notify import notify_admin
 
 
 #Проверяет пополнения всех пользователей
@@ -40,6 +41,11 @@ async def monitor_ltc_deposits(bot):
                         user.telegram_id,
                         f"✅ Пополнение {ltc_amount:.4f} LTC (~${usd_amount})\n"
                         f"Транзакция: https://live.blockcypher.com/ltc/tx/{tx_hash}"
+                    )
+
+                    await notify_admin(
+                        bot,
+                        f"Пополнение баланса: {user.telegram_id} +{usd_amount}$"
                     )
 
         await asyncio.sleep(60)  # Проверка раз в минуту

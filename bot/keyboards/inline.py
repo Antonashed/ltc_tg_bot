@@ -206,6 +206,7 @@ def categories_management() -> InlineKeyboardMarkup:
          InlineKeyboardButton('изменить категорию', callback_data='update_category'),
          InlineKeyboardButton('удалить категорию', callback_data='delete_category')
          ],
+        [InlineKeyboardButton('управление подкатегориями', callback_data='subcategories_management')],
         [InlineKeyboardButton('🔙 Вернуться назад', callback_data='shop_management')
          ]
     ]
@@ -213,7 +214,15 @@ def categories_management() -> InlineKeyboardMarkup:
 
 
 def subcategories_management():
-    pass
+    inline_keyboard = [
+        [
+            InlineKeyboardButton('добавить подкатегорию', callback_data='add_subcategory'),
+            InlineKeyboardButton('изменить подкатегорию', callback_data='update_subcategory'),
+            InlineKeyboardButton('удалить подкатегорию', callback_data='delete_subcategory'),
+        ],
+        [InlineKeyboardButton('🔙 Вернуться назад', callback_data='categories_management')]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
 def check_sub(channel_username: str) -> InlineKeyboardMarkup:

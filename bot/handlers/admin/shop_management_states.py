@@ -5,15 +5,39 @@ from aiogram import Dispatcher
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.exceptions import ChatNotFound
 
-from bot.database.methods import check_role, select_today_users, select_admins, get_user_count, select_today_orders, \
-    select_all_orders, select_users_balance, select_count_items, \
-    select_count_goods, select_count_categories, select_count_bought_items, check_category, create_category, \
-    delete_category, update_category, check_item, create_item, add_values_to_item, update_item, \
-    delete_item, check_value, delete_only_items, select_bought_item
+from bot.database.methods import (
+    check_role,
+    select_today_users,
+    select_admins,
+    get_user_count,
+    select_today_orders,
+    select_all_orders,
+    select_users_balance,
+    select_count_items,
+    select_count_goods,
+    select_count_categories,
+    select_count_bought_items,
+    check_category,
+    create_category,
+    delete_category,
+    update_category,
+    check_subcategory,
+    create_subcategory,
+    delete_subcategory,
+    update_subcategory,
+    check_item,
+    create_item,
+    add_values_to_item,
+    update_item,
+    delete_item,
+    check_value,
+    delete_only_items,
+    select_bought_item,
+)
 from bot.database.models import Permission
 from bot.handlers.other import get_bot_user_ids
 from bot.keyboards import shop_management, goods_management, categories_management, back, item_management, \
-    question_buttons
+    question_buttons, subcategories_management
 from bot.logger_mesh import logger
 from bot.misc import TgConfig
 
@@ -234,6 +258,189 @@ async def check_category_name_for_update(message: Message):
                 f'изменил категорию "{old_name}" на "{category}"')
 
 
+async def subcategories_callback_handler(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    TgConfig.STATE[user_id] = None
+    role = check_role(user_id)
+    if role >= Permission.SHOP_MANAGE:
+        await bot.edit_message_text(
+            '⛩️ Меню управления подкатегориями',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=subcategories_management(),
+        )
+        return
+    await call.answer('Недостаточно прав')
+
+
+async def add_subcategory_callback_handler(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    TgConfig.STATE[user_id] = 'add_subcategory_name'
+    TgConfig.STATE[f'{user_id}_message_id'] = call.message.message_id
+    role = check_role(user_id)
+    if role >= Permission.SHOP_MANAGE:
+        await bot.edit_message_text(
+            'Введите название подкатегории',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=back('subcategories_management'),
+        )
+        return
+    await call.answer('Недостаточно прав')
+
+
+async def process_subcategory_name(message: Message):
+    bot, user_id = await get_bot_user_ids(message)
+    TgConfig.STATE[user_id] = 'add_subcategory_category'
+    TgConfig.STATE[f'{user_id}_subcategory_name'] = message.text
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    await bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message_id,
+        text='Введите категорию для подкатегории:',
+        reply_markup=back('subcategories_management'),
+    )
+
+
+async def process_subcategory_category(message: Message):
+    bot, user_id = await get_bot_user_ids(message)
+    subcat_name = TgConfig.STATE.get(f'{user_id}_subcategory_name')
+    category_name = message.text
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    TgConfig.STATE[user_id] = None
+    await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    if not check_category(category_name):
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text='❌ Подкатегория не создана (Категория не найдена)',
+            reply_markup=back('subcategories_management'),
+        )
+        return
+    if check_subcategory(subcat_name):
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text='❌ Подкатегория не создана (Уже существует)',
+            reply_markup=back('subcategories_management'),
+        )
+        return
+    create_subcategory(subcat_name, category_name)
+    await bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message_id,
+        text='✅ Подкатегория создана',
+        reply_markup=back('subcategories_management'),
+    )
+    admin_info = await bot.get_chat(user_id)
+    logger.info(
+        f"Пользователь {user_id} ({admin_info.first_name}) создал подкатегорию \"{subcat_name}\" в категории \"{category_name}\""
+    )
+
+
+async def delete_subcategory_callback_handler(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    TgConfig.STATE[user_id] = 'delete_subcategory'
+    TgConfig.STATE[f'{user_id}_message_id'] = call.message.message_id
+    role = check_role(user_id)
+    if role >= Permission.SHOP_MANAGE:
+        await bot.edit_message_text(
+            'Введите название подкатегории',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=back('subcategories_management'),
+        )
+        return
+    await call.answer('Недостаточно прав')
+
+
+async def process_subcategory_for_delete(message: Message):
+    bot, user_id = await get_bot_user_ids(message)
+    subcat_name = message.text
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    TgConfig.STATE[user_id] = None
+    await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    if not check_subcategory(subcat_name):
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text='❌ Подкатегория не удалена (Не найдена)',
+            reply_markup=back('subcategories_management'),
+        )
+        return
+    delete_subcategory(subcat_name)
+    await bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message_id,
+        text='✅ Подкатегория удалена',
+        reply_markup=back('subcategories_management'),
+    )
+    admin_info = await bot.get_chat(user_id)
+    logger.info(
+        f"Пользователь {user_id} ({admin_info.first_name}) удалил подкатегорию \"{subcat_name}\""
+    )
+
+
+async def update_subcategory_callback_handler(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    TgConfig.STATE[f'{user_id}_message_id'] = call.message.message_id
+    TgConfig.STATE[user_id] = 'check_subcategory'
+    role = check_role(user_id)
+    if role >= Permission.SHOP_MANAGE:
+        await bot.edit_message_text(
+            'Введите название подкатегории для обновления:',
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=back('subcategories_management'),
+        )
+        return
+    await call.answer('Недостаточно прав')
+
+
+async def check_subcategory_for_update(message: Message):
+    bot, user_id = await get_bot_user_ids(message)
+    subcat_name = message.text
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    if not check_subcategory(subcat_name):
+        await bot.edit_message_text(
+            chat_id=message.chat.id,
+            message_id=message_id,
+            text='❌ Подкатегория не может быть обновлена (Не найдена)',
+            reply_markup=back('subcategories_management'),
+        )
+        return
+    TgConfig.STATE[user_id] = 'update_subcategory_name'
+    TgConfig.STATE[f'{user_id}_old_subcategory'] = subcat_name
+    await bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message_id,
+        text='Введите новое имя для подкатегории:',
+        reply_markup=back('subcategories_management'),
+    )
+
+
+async def check_subcategory_name_for_update(message: Message):
+    bot, user_id = await get_bot_user_ids(message)
+    new_name = message.text
+    message_id = TgConfig.STATE.get(f'{user_id}_message_id')
+    old_name = TgConfig.STATE.get(f'{user_id}_old_subcategory')
+    TgConfig.STATE[user_id] = None
+    await bot.delete_message(chat_id=message.chat.id, message_id=message.message_id)
+    update_subcategory(old_name, new_name)
+    await bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message_id,
+        text=f'✅ Подкатегория "{new_name}" обновлена успешно.',
+        reply_markup=back('subcategories_management'),
+    )
+    admin_info = await bot.get_chat(user_id)
+    logger.info(
+        f"Пользователь {user_id} ({admin_info.first_name}) изменил подкатегорию \"{old_name}\" на \"{new_name}\""
+    )
+
+
 async def goods_settings_menu_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     TgConfig.STATE[user_id] = None
@@ -305,29 +512,32 @@ async def add_item_price(message: Message):
                                     text='⚠️ некорректное значение цены.',
                                     reply_markup=back('item-management'))
         return
-    TgConfig.STATE[user_id] = 'check_item_category'
+    TgConfig.STATE[user_id] = 'check_item_subcategory'
     TgConfig.STATE[f'{user_id}_price'] = message.text
-    await bot.edit_message_text(chat_id=message.chat.id,
-                                message_id=message_id,
-                                text='Введите категорию, к которой будет относится позиция:',
-                                reply_markup=back('item-management'))
+    await bot.edit_message_text(
+        chat_id=message.chat.id,
+        message_id=message_id,
+        text='Введите подкатегорию, к которой будет относиться товар:',
+        reply_markup=back('item-management'),
+    )
 
 
-async def check_category_for_add_item(message: Message):
+async def check_subcategory_for_add_item(message: Message):
     bot, user_id = await get_bot_user_ids(message)
-    category_name = message.text
+    subcategory_name = message.text
     message_id = TgConfig.STATE.get(f'{user_id}_message_id')
     await bot.delete_message(chat_id=message.chat.id,
                              message_id=message.message_id)
-    category = check_category(category_name)
-    if not category:
+    subcategory = check_subcategory(subcategory_name)
+    if not subcategory:
         await bot.edit_message_text(chat_id=message.chat.id,
                                     message_id=message_id,
-                                    text='❌ Позиция не может быть создана (Категория для привязки введена неверно)',
+                                    text='❌ Товар не может быть создан (Подкатегория введена неверно)',
                                     reply_markup=back('item-management'))
         return
     TgConfig.STATE[user_id] = None
-    TgConfig.STATE[f'{user_id}_category'] = category_name
+    TgConfig.STATE[f'{user_id}_category'] = subcategory['category_name']
+    TgConfig.STATE[f'{user_id}_subcategory'] = subcategory['id']
     await bot.edit_message_text(chat_id=message.chat.id,
                                 message_id=message_id,
                                 text='У этой позиции будут бесконечные товары? '
@@ -385,8 +595,9 @@ async def adding_item(message: Message):
                                     text='✅ Позиция создана, товар добавлен',
                                     reply_markup=back('item-management'))
         admin_info = await bot.get_chat(user_id)
-        logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
-                    f'создал новую позицию "{item_name}"')
+        logger.info(
+            f"Пользователь {user_id} ({admin_info.first_name}) добавил {len(values_list)} значений к товару \"{item_name}\""
+        )
     else:
         value = message.text
         await bot.delete_message(chat_id=message.chat.id,
@@ -408,8 +619,9 @@ async def adding_item(message: Message):
                                     text='✅ Позиция создана, товар добавлен',
                                     reply_markup=back('item-management'))
         admin_info = await bot.get_chat(user_id)
-        logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
-                    f'создал новую позицию "{item_name}"')
+        logger.info(
+            f"Пользователь {user_id} ({admin_info.first_name}) добавил неограниченное количество значений к товару \"{item_name}\""
+        )
 
 
 async def update_item_amount_callback_handler(call: CallbackQuery):
@@ -737,6 +949,14 @@ def register_shop_management(dp: Dispatcher) -> None:
                                        lambda c: c.data == 'goods_management')
     dp.register_callback_query_handler(categories_callback_handler,
                                        lambda c: c.data == 'categories_management')
+    dp.register_callback_query_handler(subcategories_callback_handler,
+                                       lambda c: c.data == 'subcategories_management')
+    dp.register_callback_query_handler(add_subcategory_callback_handler,
+                                       lambda c: c.data == 'add_subcategory')
+    dp.register_callback_query_handler(delete_subcategory_callback_handler,
+                                       lambda c: c.data == 'delete_subcategory')
+    dp.register_callback_query_handler(update_subcategory_callback_handler,
+                                       lambda c: c.data == 'update_subcategory')
     dp.register_callback_query_handler(add_category_callback_handler,
                                        lambda c: c.data == 'add_category')
     dp.register_callback_query_handler(delete_category_callback_handler,
@@ -754,8 +974,8 @@ def register_shop_management(dp: Dispatcher) -> None:
                                 lambda c: TgConfig.STATE.get(c.from_user.id) == 'create_item_description')
     dp.register_message_handler(add_item_price,
                                 lambda c: TgConfig.STATE.get(c.from_user.id) == 'create_item_price')
-    dp.register_message_handler(check_category_for_add_item,
-                                lambda c: TgConfig.STATE.get(c.from_user.id) == 'check_item_category')
+    dp.register_message_handler(check_subcategory_for_add_item,
+                                lambda c: TgConfig.STATE.get(c.from_user.id) == 'check_item_subcategory')
     dp.register_message_handler(adding_item,
                                 lambda c: TgConfig.STATE.get(c.from_user.id) == 'add_item_value')
     dp.register_message_handler(check_item_name_for_update,
@@ -778,6 +998,16 @@ def register_shop_management(dp: Dispatcher) -> None:
                                 lambda c: TgConfig.STATE.get(c.from_user.id) == 'check_category')
     dp.register_message_handler(check_category_name_for_update,
                                 lambda c: TgConfig.STATE.get(c.from_user.id) == 'update_category_name')
+    dp.register_message_handler(process_subcategory_name,
+                                lambda c: TgConfig.STATE.get(c.from_user.id) == 'add_subcategory_name')
+    dp.register_message_handler(process_subcategory_category,
+                                lambda c: TgConfig.STATE.get(c.from_user.id) == 'add_subcategory_category')
+    dp.register_message_handler(process_subcategory_for_delete,
+                                lambda c: TgConfig.STATE.get(c.from_user.id) == 'delete_subcategory')
+    dp.register_message_handler(check_subcategory_for_update,
+                                lambda c: TgConfig.STATE.get(c.from_user.id) == 'check_subcategory')
+    dp.register_message_handler(check_subcategory_name_for_update,
+                                lambda c: TgConfig.STATE.get(c.from_user.id) == 'update_subcategory_name')
     dp.register_message_handler(update_item_infinity,
                                 lambda c: TgConfig.STATE.get(c.from_user.id) == 'apply_change')
 

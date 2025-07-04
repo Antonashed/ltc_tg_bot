@@ -6,7 +6,7 @@ import datetime
 from sqlalchemy import exc, func
 from sqlalchemy.exc import SQLAlchemyError
 
-from bot.database.models import Database, User, ItemValues, Goods, Categories, Role, BoughtGoods
+from bot.database.models import Database, User, ItemValues, Goods, Categories, Role, BoughtGoods, Subcategories
 
 
 def check_user(telegram_id: int) -> Optional[User]:
@@ -68,6 +68,18 @@ def get_all_categories() -> list[str]:
     return [category[0] for category in Database().session.query(Categories.name).all()]
 
 
+def get_all_subcategories(category_name: str) -> list[str]:
+    return [
+        sub[0]
+        for sub in (
+            Database()
+            .session.query(Subcategories.name)
+            .filter(Subcategories.category_name == category_name)
+            .all()
+        )
+    ]
+
+
 def get_all_items(category_name: str) -> list[str]:
     return [item[0] for item in
             Database().session.query(Goods.name).filter(Goods.category_name == category_name).all()]
@@ -100,6 +112,26 @@ def check_item(item_name: str) -> Optional[dict]:
 def check_category(category_name: str) -> Optional[dict]:
     result = Database().session.query(Categories).filter(Categories.name == category_name).first()
     return result.__dict__ if result else None
+
+
+def check_subcategory(subcategory_name: str) -> Optional[dict]:
+    result = (
+        Database()
+        .session.query(Subcategories)
+        .filter(Subcategories.name == subcategory_name)
+        .first()
+    )
+    return result.__dict__ if result else None
+
+
+def get_subcategory_id(subcategory_name: str) -> Optional[int]:
+    result = (
+        Database()
+        .session.query(Subcategories.id)
+        .filter(Subcategories.name == subcategory_name)
+        .first()
+    )
+    return result[0] if result else None
 
 
 def get_item_value(item_name: str) -> Optional[dict]:

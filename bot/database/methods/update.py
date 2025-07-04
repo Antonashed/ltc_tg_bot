@@ -45,3 +45,11 @@ def update_category(category_name: str, new_name: str) -> None:
     Database().session.query(Categories).filter(Categories.name == category_name).update(
         values={Categories.name: new_name})
     Database().session.commit()
+
+
+def update_subcategory(subcategory_name: str, new_name: str) -> None:
+    session = Database().session
+    session.query(Subcategories).filter(Subcategories.name == subcategory_name).update(
+        values={Subcategories.name: new_name}
+    )
+    session.commit()

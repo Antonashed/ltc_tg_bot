@@ -5,9 +5,15 @@ import logging
 logger = logging.getLogger("bot.logger_mesh")
 
 # Инициализация системы шифрования
+ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY")
+
+if ENCRYPTION_KEY is None:
+    raise RuntimeError(
+        "ENCRYPTION_KEY environment variable is required for encryption"
+    )
+
 try:
-    ENCRYPTION_KEY = os.getenv("ENCRYPTION_KEY").encode()
-    cipher = Fernet(ENCRYPTION_KEY)
+    cipher = Fernet(ENCRYPTION_KEY.encode())
 except Exception as e:
     logger.critical(f"Ошибка инициализации шифрования: {str(e)}")
     cipher = None

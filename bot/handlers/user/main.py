@@ -12,8 +12,18 @@ from bot.database.methods import select_max_role_id, create_user, check_role, ch
     select_user_items, check_user_referrals, \
     bought_items_list, check_value, get_ltc_address, add_bought_item, buy_item_for_balance
 from bot.handlers.other import get_bot_user_ids, check_sub_channel, get_bot_info
-from bot.keyboards import check_sub, main_menu, categories_list, goods_list, \
-    profile, rules, user_items_list, back, item_info
+from bot.keyboards import (
+    check_sub,
+    main_menu,
+    categories_list,
+    goods_list,
+    profile,
+    rules,
+    user_items_list,
+    back,
+    item_info,
+    settings,
+)
 from bot.logger_mesh import logger
 from bot.misc import TgConfig, EnvKeys
 from bot.utils.admin_notify import notify_admin
@@ -299,6 +309,16 @@ async def rules_callback_handler(call: CallbackQuery):
     await call.answer(text='❌ Правила не были добавлены')
 
 
+async def settings_callback_handler(call: CallbackQuery):
+    bot, user_id = await get_bot_user_ids(call)
+    TgConfig.STATE[user_id] = None
+    markup = settings()
+    await bot.edit_message_text('⚙️ Настройки',
+                                chat_id=call.message.chat.id,
+                                message_id=call.message.message_id,
+                                reply_markup=markup)
+
+
 async def profile_callback_handler(call: CallbackQuery):
     bot, user_id = await get_bot_user_ids(call)
     user = call.from_user
@@ -433,6 +453,8 @@ def register_user_handlers(dp: Dispatcher):
                                        lambda c: c.data == 'profile')
     dp.register_callback_query_handler(rules_callback_handler,
                                        lambda c: c.data == 'rules')
+    dp.register_callback_query_handler(settings_callback_handler,
+                                       lambda c: c.data == 'settings')
     dp.register_callback_query_handler(check_sub_to_channel,
                                        lambda c: c.data == 'sub_channel_done')
     dp.register_callback_query_handler(replenish_balance_callback_handler,

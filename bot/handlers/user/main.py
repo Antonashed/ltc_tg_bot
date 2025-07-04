@@ -66,7 +66,8 @@ async def start(message: Message):
 
     role_data = check_role(user_id)
 
-    chat = TgConfig.CHANNEL_URL[13:]
+    parsed_chat_url = urlparse(TgConfig.CHANNEL_URL)
+    chat = parsed_chat_url.path.lstrip('/')
     try:
         if chat:
             chat_member = await bot.get_chat_member(chat_id=f'@{chat}', user_id=user_id)

@@ -15,19 +15,44 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 aiogram = types.ModuleType("aiogram")
 aiogram.utils = types.ModuleType("utils")
 aiogram.utils.executor = types.SimpleNamespace(start_polling=lambda *a, **k: None)
-aiogram.Bot = object
-aiogram.Dispatcher = object
+aiogram.utils.exceptions = types.SimpleNamespace(
+    BotBlocked=type("BotBlocked", (), {}),
+    ChatNotFound=type("ChatNotFound", (), {}),
+)
+aiogram.utils.markdown = types.SimpleNamespace(
+    text=lambda *a, **k: "",
+    bold=lambda *a, **k: "",
+    code=lambda *a, **k: "",
+)
+class _Dummy:
+    def __init__(self, *args, **kwargs):
+        pass
+
+aiogram.Bot = _Dummy
+aiogram.Dispatcher = _Dummy
 aiogram.contrib = types.ModuleType("contrib")
 aiogram.contrib.fsm_storage = types.ModuleType("fsm_storage")
 aiogram.contrib.fsm_storage.memory = types.SimpleNamespace(MemoryStorage=object)
+aiogram.types = types.SimpleNamespace(
+    Message=_Dummy,
+    CallbackQuery=_Dummy,
+    InlineKeyboardMarkup=_Dummy,
+    InlineKeyboardButton=_Dummy,
+    ReplyKeyboardMarkup=_Dummy,
+    KeyboardButton=_Dummy,
+    ChatType=_Dummy,
+)
 sys.modules.setdefault("aiogram", aiogram)
 sys.modules.setdefault("aiogram.utils", aiogram.utils)
 sys.modules.setdefault("aiogram.utils.executor", aiogram.utils.executor)
+sys.modules.setdefault("aiogram.utils.exceptions", aiogram.utils.exceptions)
+sys.modules.setdefault("aiogram.utils.markdown", aiogram.utils.markdown)
 sys.modules.setdefault("aiogram.contrib", aiogram.contrib)
 sys.modules.setdefault("aiogram.contrib.fsm_storage", aiogram.contrib.fsm_storage)
 sys.modules.setdefault(
     "aiogram.contrib.fsm_storage.memory", aiogram.contrib.fsm_storage.memory
 )
+sys.modules.setdefault("aiogram.types", aiogram.types)
 
 # Ensure encryption key is available before importing application modules
 key = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()

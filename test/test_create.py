@@ -1,6 +1,38 @@
 import unittest
 import asyncio
+import os
 from unittest.mock import patch, MagicMock
+import base64
+import secrets
+import sys
+from pathlib import Path
+import types
+
+# Ensure project root is in import path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+# Provide dummy aiogram package to satisfy imports
+aiogram = types.ModuleType("aiogram")
+aiogram.utils = types.ModuleType("utils")
+aiogram.utils.executor = types.SimpleNamespace(start_polling=lambda *a, **k: None)
+aiogram.Bot = object
+aiogram.Dispatcher = object
+aiogram.contrib = types.ModuleType("contrib")
+aiogram.contrib.fsm_storage = types.ModuleType("fsm_storage")
+aiogram.contrib.fsm_storage.memory = types.SimpleNamespace(MemoryStorage=object)
+sys.modules.setdefault("aiogram", aiogram)
+sys.modules.setdefault("aiogram.utils", aiogram.utils)
+sys.modules.setdefault("aiogram.utils.executor", aiogram.utils.executor)
+sys.modules.setdefault("aiogram.contrib", aiogram.contrib)
+sys.modules.setdefault("aiogram.contrib.fsm_storage", aiogram.contrib.fsm_storage)
+sys.modules.setdefault(
+    "aiogram.contrib.fsm_storage.memory", aiogram.contrib.fsm_storage.memory
+)
+
+# Ensure encryption key is available before importing application modules
+key = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
+os.environ.setdefault("ENCRYPTION_KEY", key)
+
 from bot.database.models import User
 from bot.database.methods.create import create_user  # правильный импорт
 

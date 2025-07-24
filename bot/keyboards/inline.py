@@ -1,11 +1,5 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton, ReplyKeyboardMarkup, KeyboardButton
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-main_menu_reply_kb = ReplyKeyboardMarkup(
-    keyboard=[
-        [KeyboardButton("🏠 Главное меню")]
-    ],
-    resize_keyboard=True
-)
 
 def main_menu(role: int, channel: str = None, helper: str = None) -> InlineKeyboardMarkup:
     inline_keyboard = [
@@ -14,7 +8,6 @@ def main_menu(role: int, channel: str = None, helper: str = None) -> InlineKeybo
             InlineKeyboardButton('📜 Правила', callback_data='rules'),
         ],
         [InlineKeyboardButton('👤 Профиль', callback_data='profile')],
-        [InlineKeyboardButton('⚙️ Настройки', callback_data='settings')],
     ]
     if helper and channel:
         inline_keyboard.append([
@@ -47,10 +40,6 @@ def categories_list(list_items: list[str], current_index: int, max_index: int) -
         markup.row(*buttons)
     markup.add(InlineKeyboardButton('🔙 Вернуться в меню', callback_data='back_to_menu'))
     return markup
-
-
-def subcategories_list():
-    pass
 
 
 def goods_list(list_items: list[str], category_name: str, current_index: int, max_index: int) -> InlineKeyboardMarkup:
@@ -118,12 +107,14 @@ def rules() -> InlineKeyboardMarkup:
 
 def console() -> InlineKeyboardMarkup:
     inline_keyboard = [
-        [InlineKeyboardButton('🏪 Управление магазином', callback_data='shop_management')],
-        [InlineKeyboardButton('👥 Управление пользователями', callback_data='user_management')],
-        [InlineKeyboardButton('📊 Статистика', callback_data='statistics')],
-        [InlineKeyboardButton('📜 Логи', callback_data='show_logs')],
-        [InlineKeyboardButton('📢 Рассылка', callback_data='send_message')],
-        [InlineKeyboardButton('🔙 Вернуться в меню', callback_data='back_to_menu')]
+        [InlineKeyboardButton('🏪 Управление магазином', callback_data='shop_management')
+         ],
+        [InlineKeyboardButton('👥 Управление пользователями', callback_data='user_management')
+         ],
+        [InlineKeyboardButton('📢 Рассылка', callback_data='send_message')
+         ],
+        [InlineKeyboardButton('🔙 Вернуться в меню', callback_data='back_to_menu')
+         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
@@ -160,19 +151,30 @@ def user_manage_check(user_id: int) -> InlineKeyboardMarkup:
 
 def shop_management() -> InlineKeyboardMarkup:
     inline_keyboard = [
-        [InlineKeyboardButton('Управление товарами', callback_data='goods_management')],
-        [InlineKeyboardButton('Управление категориями', callback_data='categories_management')],
-        [InlineKeyboardButton('🔙 Вернуться назад', callback_data='console')]
+        [InlineKeyboardButton('Управление позициями (товарами)', callback_data='goods_management')
+         ],
+        [InlineKeyboardButton('Управление категориями', callback_data='categories_management')
+         ],
+        [InlineKeyboardButton('Показать логи', callback_data='show_logs')
+         ],
+        [InlineKeyboardButton('Статистика', callback_data='statistics')
+         ],
+        [InlineKeyboardButton('🔙 Вернуться назад', callback_data='console')
+         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
 def goods_management() -> InlineKeyboardMarkup:
     inline_keyboard = [
-        [InlineKeyboardButton('Добавить товар', callback_data='item-management')],
-        [InlineKeyboardButton('Редактировать товар', callback_data='update_item')],
-        [InlineKeyboardButton('Удалить товар', callback_data='delete_item')],
-        [InlineKeyboardButton('🔙 Вернуться назад', callback_data='shop_management')]
+        [InlineKeyboardButton('добавить позицию (товар)', callback_data='item-management'),
+         InlineKeyboardButton('изменить позицию', callback_data='update_item'),
+         InlineKeyboardButton('удалить позицию', callback_data='delete_item')
+         ],
+        [InlineKeyboardButton('Посмотреть информацию о купленном товаре', callback_data='show_bought_item')
+         ],
+        [InlineKeyboardButton('🔙 Вернуться назад', callback_data='shop_management')
+         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
@@ -200,8 +202,12 @@ def categories_management() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
-def subcategories_management():
-    pass
+def close() -> InlineKeyboardMarkup:
+    inline_keyboard = [
+        [InlineKeyboardButton('Скрыть', callback_data='close')
+         ]
+    ]
+    return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
 def check_sub(channel_username: str) -> InlineKeyboardMarkup:
@@ -222,9 +228,14 @@ def back(callback: str) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 
 
-def settings() -> InlineKeyboardMarkup:
+def payment_menu(url: str, label: str) -> InlineKeyboardMarkup:
     inline_keyboard = [
-        [InlineKeyboardButton('🔙 Вернуться в меню', callback_data='back_to_menu')]
+        [InlineKeyboardButton('✅ Оплатить', url=url)
+         ],
+        [InlineKeyboardButton('🔄 Проверить оплату', callback_data=f'check_{label}')
+         ],
+        [InlineKeyboardButton('🔙 Вернуться назад', callback_data='replenish_balance')
+         ]
     ]
     return InlineKeyboardMarkup(inline_keyboard=inline_keyboard)
 

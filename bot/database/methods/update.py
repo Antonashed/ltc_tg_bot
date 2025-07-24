@@ -18,14 +18,12 @@ def update_balance(telegram_id: int | str, summ: float) -> None:
 
 
 def buy_item_for_balance(telegram_id: str, summ: int) -> int:
-    session = Database().session
-    current_balance = session.query(User.balance).filter(User.telegram_id == telegram_id).one()[0]
-    new_balance = current_balance - summ
-    session.query(User).filter(User.telegram_id == telegram_id).update(
-        values={User.balance: new_balance}
-    )
-    session.commit()
-    return new_balance
+    old_balance = User.balance
+    new_balance = old_balance - summ
+    Database().session.query(User).filter(User.telegram_id == telegram_id).update(
+        values={User.balance: new_balance})
+    Database().session.commit()
+    return Database().session.query(User.balance).filter(User.telegram_id == telegram_id).one()[0]
 
 
 def update_item(item_name: str, new_name: str, new_description: str, new_price: int, new_category_name: str) -> None:

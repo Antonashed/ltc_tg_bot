@@ -4,13 +4,12 @@ from typing import Final
 
 class TgConfig(ABC):
     STATE: Final = {}
-    CHANNEL_URL: Final = 'https://t.me/+5Ogg-frPGhlkMjY0'
-    HELPER_URL: Final = '@CARTMAN01'
-    GROUP_ID: Final = -988765433
+    CHANNEL_URL: Final = 'https://t.me/+DZbZXngTtCUxYzll'
+    HELPER_URL: Final = '@yourhatefulldeath'
+    GROUP_ID: Final = -4824955713
     REFERRAL_PERCENT = 0
     PAYMENT_TIME: Final = 1800
     RULES: Final = """
-    South Park 
 
 Совершая покупку, вы автоматически принимаете условия данной оферты. 
 

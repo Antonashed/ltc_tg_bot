@@ -1,5 +1,5 @@
 import datetime
-from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, Text, Boolean, VARCHAR, Numeric, Float
+from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, Text, Boolean, VARCHAR, Numeric, Float, DateTime
 from bot.database.main import Database
 from sqlalchemy.orm import relationship
 
@@ -73,10 +73,13 @@ class User(Database.BASE):
     __tablename__ = 'users'
     telegram_id = Column(BigInteger, nullable=False, unique=True, primary_key=True)
     role_id = Column(Integer, ForeignKey('roles.id'), default=1)
-    ltc_address = Column(String, nullable=False, default='insert address')
-    private_key = Column(String, nullable=False, default='zero')
+    ltc_address = Column(String, nullable=False, default='none')
+    private_key = Column(String, nullable=False, default='none')
     balance = Column(BigInteger, nullable=False, default=0)
+    referral_id = Column(BigInteger, nullable=True)
     registration_date = Column(VARCHAR, nullable=False)
+    user_operations = relationship("Operations", back_populates="user_telegram_id")
+    user_unfinished_operations = relationship("UnfinishedOperations", back_populates="user_telegram_id")
     user_goods = relationship("BoughtGoods", back_populates="user_telegram_id")
 
     def __init__(self, telegram_id: int, registration_date: datetime.datetime, ltc_address: str, private_key: str, balance: int = 0,
@@ -93,26 +96,10 @@ class User(Database.BASE):
 class Categories(Database.BASE):
     __tablename__ = 'categories'
     name = Column(String(100), primary_key=True, unique=True, nullable=False)
-
-    subcategories = relationship("Subcategories", back_populates="category")  # 🔗
-    item = relationship("Goods", back_populates="category")  # опционально, если хочешь прямую связь
+    item = relationship("Goods", back_populates="category")
 
     def __init__(self, name: str):
         self.name = name
-
-
-class Subcategories(Database.BASE):
-    __tablename__ = 'subcategories'
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    name = Column(String(100), nullable=False)
-    category_name = Column(String(100), ForeignKey('categories.name'), nullable=False)
-
-    category = relationship("Categories", back_populates="subcategories")
-    goods = relationship("Goods", back_populates="subcategory")
-
-    def __init__(self, name: str, category_name: str):
-        self.name = name
-        self.category_name = category_name
 
 
 class Goods(Database.BASE):
@@ -120,20 +107,15 @@ class Goods(Database.BASE):
     name = Column(String(100), nullable=False, unique=True, primary_key=True)
     price = Column(BigInteger, nullable=False)
     description = Column(Text, nullable=False)
-    category_name = Column(String(100), ForeignKey('categories.name'), nullable=False)  # можно оставить, если нужно
-    subcategory_id = Column(Integer, ForeignKey('subcategories.id'), nullable=False)
-
-    category = relationship("Categories", back_populates="item")  # если оставляешь связь
-    subcategory = relationship("Subcategories", back_populates="goods")  # 🔗
+    category_name = Column(String(100), ForeignKey('categories.name'), nullable=False)
+    category = relationship("Categories", back_populates="item")
     values = relationship("ItemValues", back_populates="item")
 
-    def __init__(self, name: str, price: int, description: str, category_name: str, subcategory_id: int):
+    def __init__(self, name: str, price: int, description: str, category_name: str):
         self.name = name
         self.price = price
         self.description = description
         self.category_name = category_name
-        self.subcategory_id = subcategory_id
-
 
 
 class ItemValues(Database.BASE):
@@ -141,11 +123,13 @@ class ItemValues(Database.BASE):
     id = Column(Integer, nullable=False, primary_key=True)
     item_name = Column(String(100), ForeignKey('goods.name'), nullable=False)
     value = Column(Text, nullable=True)
+    is_infinity = Column(Boolean, nullable=False)
     item = relationship("Goods", back_populates="values")
 
-    def __init__(self, item_name: str, value: str):
-        self.item_name = item_name
+    def __init__(self, name: str, value: str, is_infinity: bool):
+        self.item_name = name
         self.value = value
+        self.is_infinity = is_infinity
 
 
 class BoughtGoods(Database.BASE):
@@ -169,6 +153,48 @@ class BoughtGoods(Database.BASE):
         self.unique_id = unique_id
 
 
+class Operations(Database.BASE):
+    __tablename__ = 'operations'
+    id = Column(Integer, nullable=False, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=False)
+    operation_value = Column(BigInteger, nullable=False)
+    operation_time = Column(VARCHAR, nullable=False)
+    user_telegram_id = relationship("User", back_populates="user_operations")
+
+    def __init__(self, user_id: int, operation_value: int, operation_time: str):
+        self.user_id = user_id
+        self.operation_value = operation_value
+        self.operation_time = operation_time
+
+
+class UnfinishedOperations(Database.BASE):
+    __tablename__ = 'unfinished_operations'
+    id = Column(Integer, nullable=False, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=False)
+    operation_value = Column(BigInteger, nullable=False)
+    operation_id = Column(String(500), nullable=False)
+    user_telegram_id = relationship("User", back_populates="user_unfinished_operations")
+
+    def __init__(self, user_id: int, operation_value: int, operation_id: str):
+        self.user_id = user_id
+        self.operation_value = operation_value
+        self.operation_id = operation_id
+
+
+def register_models():
+    Database.BASE.metadata.create_all(Database().engine)
+    Role.insert_roles()
+
+
+class LtcTransactions(Database.BASE):
+    __tablename__ = 'ltc_transactions'
+    id = Column(Integer, nullable=False, primary_key=True)
+    user_id = Column(BigInteger, ForeignKey('users.telegram_id'), nullable=False)
+    ltc_amount = Column(Numeric(18, 8), nullable=False)
+    usd_value = Column(Numeric(18, 2), nullable=False)
+    confirmations = Column(Integer, nullable=False, default=0)
+    id_processed = Column(BigInteger, nullable=False, default=0)
+
 
 class DepositLog(Database.BASE):
     __tablename__ = 'deposit_logs'
@@ -178,19 +204,14 @@ class DepositLog(Database.BASE):
     tx_hash = Column(String, nullable=False, unique=True)
     ltc_amount = Column(Numeric(18, 8), nullable=False)
     usd_amount = Column(Numeric(18, 2), nullable=False)
-    timestamp = Column(VARCHAR, default=datetime.datetime.now(datetime.timezone.utc))
+    timestamp = Column(VARCHAR, default=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
 
 
 class WithdrawLog(Database.BASE):
     __tablename__ = "withdraw_logs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    from_user = Column(Integer, nullable=False)
-    ltc_amount = Column(Float, nullable=False)
-    usd_amount = Column(Float, nullable=False)
+    user_id = Column(Integer, nullable=False)
+    amount = Column(Float, nullable=False)
     tx_hash = Column(String, nullable=False)
-    timestamp = Column(VARCHAR, default=datetime.datetime.now(datetime.timezone.utc))
-
-def register_models():
-    Database.BASE.metadata.create_all(Database().engine)
-    Role.insert_roles()
+    timestamp = Column(VARCHAR, default=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'))

@@ -8,7 +8,6 @@ from bot.handlers import register_all_handlers
 from bot.database.models import register_models
 #from bot.logger_mesh import logger, file_handler
 from bot.payment.balance.blnccheker import monitor_ltc_deposits
-from bot.utils.admin_notify import set_telegram_bot
 import asyncio
 
 #logger.addHandler(file_handler)
@@ -20,7 +19,6 @@ async def __on_start_up(dp: Dispatcher) -> None:
     register_models()
 
     bot = dp.bot
-    set_telegram_bot(bot)
     asyncio.create_task(monitor_ltc_deposits(bot))
 
 def start_bot():

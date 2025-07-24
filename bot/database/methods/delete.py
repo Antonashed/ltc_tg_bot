@@ -1,4 +1,4 @@
-from bot.database.models import Database, Goods, ItemValues, Categories
+from bot.database.models import Database, Goods, ItemValues, Categories, UnfinishedOperations
 
 
 def delete_item(item_name: str) -> None:
@@ -9,7 +9,6 @@ def delete_item(item_name: str) -> None:
 
 def delete_only_items(item_name: str) -> None:
     Database().session.query(ItemValues).filter(ItemValues.item_name == item_name).delete()
-    Database().session.commit()
 
 
 def delete_category(category_name: str) -> None:
@@ -18,6 +17,11 @@ def delete_category(category_name: str) -> None:
         Database().session.query(ItemValues).filter(ItemValues.item_name == item.name).delete()
     Database().session.query(Goods).filter(Goods.category_name == category_name).delete()
     Database().session.query(Categories).filter(Categories.name == category_name).delete()
+    Database().session.commit()
+
+
+def finish_operation(operation_id: str) -> None:
+    Database().session.query(UnfinishedOperations).filter(UnfinishedOperations.operation_id == operation_id).delete()
     Database().session.commit()
 
 

@@ -2,7 +2,7 @@ from bit import Key
 from bit.format import bytes_to_wif
 import hashlib
 import base58
-from bot.utils.crypters import encrypt_wif
+from bot.utils.cryptography import encrypt_wif
 
 def public_key_to_ltc_address(public_key_hex: str) -> str:
     """
@@ -33,7 +33,6 @@ def generate_ltc_wallet():
     ltc_address = public_key_to_ltc_address(public_key)
 
     return {
-        "private_key_encrypted": encrypted_wif,
-        "public_key": public_key,
+        "private_key_wif": encrypted_wif,
         "address": ltc_address
     }

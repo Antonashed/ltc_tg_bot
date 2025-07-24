@@ -1,138 +1,68 @@
 import unittest
-import asyncio
-import os
-from unittest.mock import patch, MagicMock
-import base64
-import secrets
-import sys
-from pathlib import Path
-import types
-
-# Ensure project root is in import path
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-# Provide dummy aiogram package to satisfy imports
-aiogram = types.ModuleType("aiogram")
-aiogram.utils = types.ModuleType("utils")
-aiogram.utils.executor = types.SimpleNamespace(start_polling=lambda *a, **k: None)
-aiogram.utils.exceptions = types.SimpleNamespace(
-    BotBlocked=type("BotBlocked", (), {}),
-    ChatNotFound=type("ChatNotFound", (), {}),
-)
-aiogram.utils.markdown = types.SimpleNamespace(
-    text=lambda *a, **k: "",
-    bold=lambda *a, **k: "",
-    code=lambda *a, **k: "",
-)
-class _Dummy:
-    def __init__(self, *args, **kwargs):
-        pass
-
-aiogram.Bot = _Dummy
-aiogram.Dispatcher = _Dummy
-aiogram.contrib = types.ModuleType("contrib")
-aiogram.contrib.fsm_storage = types.ModuleType("fsm_storage")
-aiogram.contrib.fsm_storage.memory = types.SimpleNamespace(MemoryStorage=object)
-aiogram.types = types.SimpleNamespace(
-    Message=_Dummy,
-    CallbackQuery=_Dummy,
-    InlineKeyboardMarkup=_Dummy,
-    InlineKeyboardButton=_Dummy,
-    ReplyKeyboardMarkup=_Dummy,
-    KeyboardButton=_Dummy,
-    ChatType=_Dummy,
-)
-sys.modules.setdefault("aiogram", aiogram)
-sys.modules.setdefault("aiogram.utils", aiogram.utils)
-sys.modules.setdefault("aiogram.utils.executor", aiogram.utils.executor)
-sys.modules.setdefault("aiogram.utils.exceptions", aiogram.utils.exceptions)
-sys.modules.setdefault("aiogram.utils.markdown", aiogram.utils.markdown)
-sys.modules.setdefault("aiogram.contrib", aiogram.contrib)
-sys.modules.setdefault("aiogram.contrib.fsm_storage", aiogram.contrib.fsm_storage)
-sys.modules.setdefault(
-    "aiogram.contrib.fsm_storage.memory", aiogram.contrib.fsm_storage.memory
-)
-sys.modules.setdefault("aiogram.types", aiogram.types)
-
-# Ensure encryption key is available before importing application modules
-key = base64.urlsafe_b64encode(secrets.token_bytes(32)).decode()
-os.environ.setdefault("ENCRYPTION_KEY", key)
-
-from bot.database.models import User
-from bot.database.methods.create import create_user  # правильный импорт
+from unittest.mock import patch, AsyncMock, MagicMock
+from aiogram.types import Message
+from bot.handlers.user.main import start, TgConfig, EnvKeys  # импорт напрямую
 
 
-class TestCreateUser(unittest.TestCase):
+class TestStartWalletCreation(unittest.IsolatedAsyncioTestCase):
 
-    @patch('bot.database.methods.create.Database')  # ✅ правильный путь
-    @patch('bot.database.methods.create.generate_ltc_wallet')  # ✅ правильный путь
-    def test_create_user_new_user(self, mock_generate_ltc_wallet, mock_database):
-        mock_session = MagicMock()
-        mock_database.return_value.session = mock_session
-        mock_session.query.return_value.filter.return_value.first.return_value = None
+    @patch("bot.handlers.main.save_wallet_to_file")
+    @patch("bot.handlers.main.create_user", new_callable=AsyncMock)
+    @patch("bot.handlers.main.generate_ltc_wallet")
+    @patch("bot.handlers.main.check_user")
+    @patch("bot.handlers.main.select_max_role_id")
+    @patch("bot.handlers.main.check_role")
+    @patch("bot.handlers.main.get_bot_user_ids")
+    @patch("bot.handlers.main.main_menu")
+    async def test_wallet_created_and_saved(
+        self,
+        mock_main_menu,
+        mock_get_bot_user_ids,
+        mock_check_role,
+        mock_select_max_role,
+        mock_check_user,
+        mock_generate_wallet,
+        mock_create_user,
+        mock_save_wallet
+    ):
+        # ===== УСТАНОВКА конфигов ВРУЧНУЮ (вариант 1) =====
+        TgConfig.STATE = {}
+        TgConfig.CHANNEL_URL = "https://t.me/mychannel"
+        TgConfig.HELPER_URL = "@helper"
+        EnvKeys.OWNER_ID = "123"
 
-        mock_generate_ltc_wallet.return_value.__getitem__.side_effect = lambda key: {
-            'private_key_encrypted': 'mock_private_key',
-            'address': 'mock_address'
-        }[key]
+        user_id = 123
+        mock_bot = AsyncMock()
+        mock_get_bot_user_ids.return_value = (mock_bot, user_id)
 
-        telegram_id = 123456
-        registration_date = "2025-07-04"
-        private_key = 'None'
-        ltc_address = 'insert address'
-        role = 1
+        mock_check_user.return_value = None
+        mock_select_max_role.return_value = 5
+        mock_check_role.return_value = 1
 
-        asyncio.run(create_user(telegram_id, registration_date, private_key, ltc_address, role))
+        wallet = {
+            "address": "ltc123",
+            "private_key_encrypted": "enc_key",
+            "private_key_wif": "raw_wif"
+        }
+        mock_generate_wallet.return_value = wallet
+        mock_main_menu.return_value = MagicMock()
 
-        mock_generate_ltc_wallet.assert_called()
-        mock_session.add.assert_called_once()
-        user_obj = mock_session.add.call_args[0][0]
+        mock_message = MagicMock(spec=Message)
+        mock_message.chat.type = "private"
+        mock_message.text = "/start"
+        mock_message.chat.id = 1000
+        mock_message.message_id = 42
+        mock_message.from_user.id = user_id
 
-        self.assertIsInstance(user_obj, User)
-        self.assertEqual(user_obj.telegram_id, telegram_id)
-        self.assertEqual(user_obj.registration_date, registration_date)
-        self.assertEqual(user_obj.private_key, "mock_private_key")
-        self.assertEqual(user_obj.ltc_address, "mock_address")
-        mock_session.commit.assert_called_once()
+        mock_bot.get_chat_member.return_value.status = "member"
 
-    @patch('bot.database.methods.create.Database')  # ✅ исправлено
-    def test_create_user_existing_user(self, mock_database):
-        mock_session = MagicMock()
-        mock_database.return_value.session = mock_session
-        mock_session.query.return_value.filter.return_value.first.return_value = MagicMock()
+        # ===== Вызов =====
+        await start(mock_message)
 
-        telegram_id = 123456
-        registration_date = "2025-07-04"
-        private_key = 'None'
-        ltc_address = 'insert address'
-        role = 1
+        # ===== Проверки =====
+        mock_generate_wallet.assert_called_once()
+        mock_create_user.assert_awaited_once()
 
-        asyncio.run(create_user(telegram_id, registration_date, private_key, ltc_address, role))
-
-        mock_session.commit.assert_not_called()
-        mock_session.add.assert_not_called()
-
-    @patch('bot.database.methods.create.Database')
-    @patch('bot.database.methods.create.generate_ltc_wallet')
-    def test_create_user_no_wallet_needed(self, mock_generate_ltc_wallet, mock_database):
-        mock_session = MagicMock()
-        mock_database.return_value.session = mock_session
-        mock_session.query.return_value.filter.return_value.first.return_value = None
-
-        telegram_id = 123456
-        registration_date = "2025-07-04"
-        private_key = 'actual_key'  # ✅ не 'None'
-        ltc_address = 'custom_address'  # ✅ не 'insert address'
-        role = 1
-
-        asyncio.run(create_user(telegram_id, registration_date, private_key, ltc_address, role))
-
-        mock_generate_ltc_wallet.assert_not_called()
-        mock_session.add.assert_called_once()
-        user_obj = mock_session.add.call_args[0][0]
-
-        self.assertEqual(user_obj.private_key, 'actual_key')
-        self.assertEqual(user_obj.ltc_address, 'custom_address')
-
-if __name__ == '__main__':
-    unittest.main()
+        mock_save_wallet.assert_called_once_with(user_id, "ltc123", "raw_wif")
+        mock_bot.send_message.assert_awaited_once()
+        mock_bot.delete_message.assert_awaited_once()

@@ -3,7 +3,7 @@ from aiogram import Dispatcher
 from aiogram.types import Message, CallbackQuery
 from aiogram.utils.exceptions import BotBlocked
 
-from bot.keyboards import back
+from bot.keyboards import back, close
 from bot.database.methods import check_role, get_all_users
 from bot.database.models import Permission
 from bot.misc import TgConfig
@@ -42,7 +42,7 @@ async def broadcast_messages(message: Message):
         try:
             await bot.send_message(chat_id=int(user_id),
                                    text=msg,
-                                   )
+                                   reply_markup=close())
         except BotBlocked:
             pass
     await bot.edit_message_text(chat_id=message.chat.id,

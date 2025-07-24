@@ -6,7 +6,7 @@ from aiogram.types import Message, CallbackQuery
 from aiogram.utils.exceptions import ChatNotFound
 
 from bot.database.methods import check_role, select_today_users, select_admins, get_user_count, select_today_orders, \
-    select_all_orders, select_users_balance, select_count_items, \
+    select_all_orders, select_today_operations, select_users_balance, select_all_operations, select_count_items, \
     select_count_goods, select_count_categories, select_count_bought_items, check_category, create_category, \
     delete_category, update_category, check_item, create_item, add_values_to_item, update_item, \
     delete_item, check_value, delete_only_items, select_bought_item
@@ -16,7 +16,6 @@ from bot.keyboards import shop_management, goods_management, categories_manageme
     question_buttons
 from bot.logger_mesh import logger
 from bot.misc import TgConfig
-from bot.utils.admin_notify import notify_admin
 
 
 async def shop_callback_handler(call: CallbackQuery):
@@ -105,9 +104,9 @@ async def statistics_callback_handler(call: CallbackQuery):
                                     '◽<b>СРЕДСТВА</b>\n'
                                     f'◾Продаж за 24 часа на: {select_today_orders(today)}$\n'
                                     f'◾Продано товаров на: {select_all_orders()}$\n'
-                                    f'◾Пополнений за 24 часа: $\n'
+                                    f'◾Пополнений за 24 часа: {select_today_operations(today)}$\n'
                                     f'◾Средств в системе: {select_users_balance()}$\n'
-                                    f'◾Пополнено: $\n'
+                                    f'◾Пополнено: {select_all_operations()}$\n'
                                     '➖➖➖➖➖➖➖➖➖➖➖➖➖\n'
                                     '◽<b>ПРОЧЕЕ</b>\n'
                                     f'◾Товаров: {select_count_items()}шт.\n'
@@ -144,10 +143,6 @@ async def process_category_for_add(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'создал новую категорию "{msg}"')
-    await notify_admin(
-        bot,
-        f"Создана категория: {admin_info.first_name} ({user_id}) -> {msg}"
-    )
 
 
 async def delete_category_callback_handler(call: CallbackQuery):
@@ -186,10 +181,6 @@ async def process_category_for_delete(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'удалил категорию "{category["name"]}"')
-    await notify_admin(
-        bot,
-        f"Удалена категория: {admin_info.first_name} ({user_id}) -> {category['name']}"
-    )
 
 
 async def update_category_callback_handler(call: CallbackQuery):
@@ -241,10 +232,6 @@ async def check_category_name_for_update(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'изменил категорию "{old_name}" на "{category}"')
-    await notify_admin(
-        bot,
-        f"Обновлена категория: {admin_info.first_name} ({user_id}) {old_name} -> {category}"
-    )
 
 
 async def goods_settings_menu_callback_handler(call: CallbackQuery):
@@ -374,13 +361,12 @@ async def adding_item(message: Message):
     item_description = TgConfig.STATE.get(f'{user_id}_description')
     item_price = TgConfig.STATE.get(f'{user_id}_price')
     category_name = TgConfig.STATE.get(f'{user_id}_category')
-    subcategory_id = TgConfig.STATE.get(f'{user_id}_subcategory')
     answer = TgConfig.STATE.get(f'{user_id}_answer')
     if answer == 'no':
         values_list = message.text.split(';')
         await bot.delete_message(chat_id=message.chat.id,
                                  message_id=message.message_id)
-        create_item(item_name, item_description, item_price, category_name, subcategory_id=subcategory_id)
+        create_item(item_name, item_description, item_price, category_name)
         for i in values_list:
             add_values_to_item(item_name, i, False)
         group_id = TgConfig.GROUP_ID
@@ -398,19 +384,13 @@ async def adding_item(message: Message):
                                     text='✅ Позиция создана, товар добавлен',
                                     reply_markup=back('item-management'))
         admin_info = await bot.get_chat(user_id)
-        logger.info(
-            f"Пользователь {user_id} ({admin_info.first_name}) добавил {len(values_list)} "
-            f"значений к товару \"{item_name}\""
-        )
-        await notify_admin(
-            bot,
-            f"Добавлена позиция: {admin_info.first_name} ({user_id}) -> {item_name}"
-        )
+        logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
+                    f'создал новую позицию "{item_name}"')
     else:
         value = message.text
         await bot.delete_message(chat_id=message.chat.id,
                                  message_id=message.message_id)
-        create_item(item_name, item_description, item_price, category_name, subcategory_id=subcategory_id)
+        create_item(item_name, item_description, item_price, category_name)
         add_values_to_item(item_name, value, True)
         group_id = TgConfig.GROUP_ID if TgConfig.GROUP_ID != -988765433 else None
         if group_id:
@@ -427,14 +407,8 @@ async def adding_item(message: Message):
                                     text='✅ Позиция создана, товар добавлен',
                                     reply_markup=back('item-management'))
         admin_info = await bot.get_chat(user_id)
-        logger.info(
-            f"Пользователь {user_id} ({admin_info.first_name}) добавил неограниченное "
-            f"количество значений к товару \"{item_name}\""
-        )
-        await notify_admin(
-            bot,
-            f"Добавлена позиция: {admin_info.first_name} ({user_id}) -> {item_name}"
-        )
+        logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
+                    f'создал новую позицию "{item_name}"')
 
 
 async def update_item_amount_callback_handler(call: CallbackQuery):
@@ -505,10 +479,6 @@ async def updating_item_amount(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'добавил товары к позиции "{item_name}" в количестве {len(values_list)} шт')
-    await notify_admin(
-        bot,
-        f"Добавлено товаров: {admin_info.first_name} ({user_id}) -> {item_name} ({len(values_list)} шт)"
-    )
 
 
 async def update_item_callback_handler(call: CallbackQuery):
@@ -618,10 +588,6 @@ async def update_item_process(call: CallbackQuery):
         admin_info = await bot.get_chat(user_id)
         logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                     f'обновил позицию "{item_old_name}" на "{item_new_name}"')
-        await notify_admin(
-            bot,
-            f"Обновлена позиция: {admin_info.first_name} ({user_id}) {item_old_name} -> {item_new_name}"
-        )
     else:
         if answer[1] == 'make':
             await bot.edit_message_text(chat_id=call.message.chat.id,
@@ -667,10 +633,6 @@ async def update_item_infinity(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'обновил позицию "{item_old_name}" на "{item_new_name}"')
-    await notify_admin(
-        bot,
-        f"Обновлена позиция: {admin_info.first_name} ({user_id}) {item_old_name} -> {item_new_name}"
-    )
 
 
 async def delete_item_callback_handler(call: CallbackQuery):
@@ -709,10 +671,6 @@ async def delete_str_item(message: Message):
     admin_info = await bot.get_chat(user_id)
     logger.info(f"Пользователь {user_id} ({admin_info.first_name}) "
                 f'удалил позицию "{msg}"')
-    await notify_admin(
-        bot,
-        f"Удалена позиция: {admin_info.first_name} ({user_id}) -> {msg}"
-    )
 
 
 async def show_bought_item_callback_handler(call: CallbackQuery):
